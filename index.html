@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>EV Power Station Finder</title>
+    <!--
+      EV Power Station Finder: single-file frontend.
+      Everything (styles, shared helpers, router and all pages) lives in this one index.html.
+      Pages are reached with hash URLs:  index.html#/map, #/login, #/booking?id=..., etc.
+      Before deploying: set API_BASE and GOOGLE_MAPS_KEY below.
+    -->
+    <style>
+/* ===== EV Power Station Finder: shared styles ===== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --primary: #0a5c8a;
+    --primary-dark: #073f5e;
+    --accent: #0f9d78;
+    --warn: #e8890c;
+    --danger: #d64545;
+    --text-main: #1a2733;
+    --text-muted: #5b6b79;
+    --bg-light: #f4f7f9;
+    --border: #e1e8ed;
+    --white: #ffffff;
+    --radius: 8px;
+    --shadow: 0 2px 8px rgba(10, 30, 50, 0.08);
+    --shadow-hover: 0 6px 20px rgba(10, 30, 50, 0.12);
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    font-family: 'Segoe UI', 'Inter', Arial, sans-serif;
+    background-color: var(--bg-light);
+    color: var(--text-main);
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;          /* footer stays at the bottom without covering content */
+}
+main { flex: 1 0 auto; }
+
+a { color: var(--primary); }
+.hidden { display: none !important; }
+
+/* ---------- Header & nav ---------- */
+header {
+    background-color: var(--primary-dark);
+    color: white;
+    padding: 14px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    border-bottom: 3px solid var(--accent);
+}
+header h1 { font-size: 21px; font-weight: 700; letter-spacing: .2px; }
+header h1 a { color: white; text-decoration: none; }
+
+nav { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 20px; }
+nav a {
+    color: rgba(255, 255, 255, .85);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 15px;
+    padding: 6px 2px;
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+}
+nav a:hover, nav a.active { color: white; border-bottom-color: var(--accent); }
+
+/* ---------- Generic sections ---------- */
+section { text-align: center; padding: 50px 20px; }
+section h2 { font-size: 30px; font-weight: 700; margin-bottom: 12px; }
+section p { font-size: 16px; color: var(--text-muted); }
+
+/* ---------- Footer ---------- */
+footer {
+    flex-shrink: 0;
+    margin-top: auto;
+    text-align: center;
+    padding: 16px;
+    background-color: var(--primary-dark);
+    color: rgba(255, 255, 255, .8);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* ---------- Buttons ---------- */
+button { font-family: inherit; }
+.btn-primary, .btn-outline {
+    display: inline-block;
+    padding: 13px 30px;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 15px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color .15s, box-shadow .15s, color .15s;
+}
+.btn-primary { background: var(--primary); color: white; box-shadow: var(--shadow); border: 1.5px solid var(--primary); }
+.btn-primary:hover { background: var(--primary-dark); box-shadow: var(--shadow-hover); }
+.btn-outline { background: white; color: var(--primary); border: 1.5px solid var(--primary); }
+.btn-outline:hover { background: var(--primary); color: white; }
+.btn-primary.small, .btn-outline.small { padding: 8px 16px; font-size: 14px; }
+
+button.small { padding: 8px 14px; font-size: 14px; border-radius: var(--radius); border: none; cursor: pointer;
+    background: var(--primary); color: white; font-weight: 600; }
+button.small:hover { background: var(--primary-dark); }
+button.danger { background: var(--danger); color: white; border: none; cursor: pointer; border-radius: var(--radius); font-weight: 600; }
+button.danger:hover { background: #b93636; }
+button.secondary { background: white !important; color: var(--primary) !important; border: 1.5px solid var(--primary) !important; }
+button.secondary:hover { background: #eef4f8 !important; }
+button:disabled { opacity: .55; cursor: not-allowed !important; }
+
+/* ---------- Home page ---------- */
+.hero { padding: 80px 20px 60px; background: linear-gradient(180deg, #eef4f8, var(--bg-light)); }
+.hero h2 { font-size: 36px; max-width: 700px; margin: 0 auto 16px; }
+.hero p { font-size: 17px; max-width: 600px; margin: 0 auto 30px; }
+.hero-buttons { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+
+.how-it-works { padding: 70px 20px; background: var(--white); }
+.how-it-works h2 { margin-bottom: 44px; }
+.steps { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; max-width: 900px; margin: 0 auto; }
+.step { max-width: 240px; }
+.step-number { width: 44px; height: 44px; border-radius: 50%; background: var(--primary); color: white;
+    font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+.step h3 { font-size: 17px; margin-bottom: 8px; }
+.step p { font-size: 14px; }
+
+.features { padding: 70px 20px; }
+.features h2 { margin-bottom: 40px; }
+.feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; }
+.feature-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 20px;
+    text-align: left; box-shadow: var(--shadow); transition: box-shadow .15s, transform .15s; }
+.feature-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
+.feature-card h3 { font-size: 16px; color: var(--primary); margin-bottom: 8px; }
+.feature-card p { font-size: 14px; }
+
+.cta-banner { padding: 60px 20px; background: var(--primary-dark); color: white; }
+.cta-banner h2 { color: white; margin-bottom: 10px; }
+.cta-banner p { color: rgba(255, 255, 255, .8); margin-bottom: 24px; }
+.cta-banner .btn-primary { background: var(--accent); border-color: var(--accent); }
+.cta-banner .btn-primary:hover { background: #0c8265; }
+
+/* ---------- Messages & badges ---------- */
+.msg { font-size: 14px; font-weight: 500; min-height: 0; margin-top: 12px; padding: 0; border-radius: var(--radius); text-align: center; }
+.msg.error, .msg.success, .msg.info { padding: 10px 14px; }
+.msg.error { background: #fdeeee; color: #a42d2d; border: 1px solid #f3c7c7; }
+.msg.success { background: #e9f8f3; color: #0b7358; border: 1px solid #bfe8da; }
+.msg.info { background: #eef4f8; color: var(--primary-dark); border: 1px solid #d3e3ee; }
+.msg a { font-weight: 600; }
+
+.badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.badge.ok { background: #e1f5ee; color: #0b7358; }
+.badge.warn { background: #fdf0dc; color: #a35d00; }
+.badge.bad { background: #fbe4e4; color: #a42d2d; }
+.badge.muted { background: #e8eef2; color: var(--text-muted); }
+
+/* ---------- Forms (login / signup / booking) ---------- */
+.form-section {
+    text-align: left;
+    padding: 36px 36px;
+    max-width: 420px;
+    margin: 40px auto;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+.form-section.wide { max-width: 720px; }
+.form-section.flat { box-shadow: none; margin: 10px auto; }
+.form-section h2 { font-size: 24px; text-align: center; margin-bottom: 22px; }
+.form-section h3 { font-size: 18px; margin: 18px 0 8px; }
+
+.form-section label, .page-section form label { display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin: 0 0 5px; }
+label small { font-weight: 400; color: var(--text-muted); }
+
+.form-section input:not([type=radio]):not([type=checkbox]), .form-section select {
+    display: block; width: 100%; margin: 0 0 16px; padding: 11px 14px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 15px; font-family: inherit; color: var(--text-main); background: white;
+    transition: border-color .15s, box-shadow .15s;
+}
+input:focus, select:focus, button:focus-visible, a:focus-visible {
+    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(10, 92, 138, .18);
+}
+.form-section > form > button, .form-section > div > button:not(.secondary):not(.hour-btn), form.form-section > button {
+    width: 100%; padding: 12px; margin-top: 6px; background: var(--primary); color: white;
+    border: none; border-radius: var(--radius); cursor: pointer; font-size: 15px; font-weight: 600; transition: background-color .15s;
+}
+.form-section > form > button:hover, .form-section > div > button:not(.secondary):not(.hour-btn):hover, form.form-section > button:hover { background: var(--primary-dark); }
+form.form-section > button.secondary, .form-section > form > button.secondary { margin-bottom: 14px; }
+
+.form-section p { text-align: center; margin-top: 16px; font-size: 14px; color: var(--text-muted); }
+.form-section a { font-weight: 600; text-decoration: none; }
+.form-section a:hover { text-decoration: underline; }
+
+.role-toggle { display: flex; gap: 10px; margin-bottom: 18px; }
+.role-toggle label { flex: 1; display: flex !important; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font-size: 14px; margin: 0; }
+.role-toggle label:has(input:checked) { border-color: var(--primary); background: #eef4f8; color: var(--primary-dark); }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+
+/* ---------- Booking page ---------- */
+#stationInfo h2 { margin-bottom: 4px; text-align: left; font-size: 26px; }
+#stationInfo .sub { margin: 0 0 14px; text-align: left; }
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 8px; }
+.detail-grid div { background: var(--bg-light); border-radius: var(--radius); padding: 10px 12px; }
+.detail-grid span { display: block; font-size: 12px; color: var(--text-muted); }
+.detail-grid strong { font-size: 15px; }
+
+.hour-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; margin-bottom: 16px; font-size: 14px; color: var(--text-muted); }
+.hour-btn { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border: 1px solid var(--border);
+    background: white; border-radius: var(--radius); cursor: pointer; color: var(--text-main); transition: border-color .15s, background .15s; }
+.hour-btn small { color: var(--accent); font-weight: 600; }
+.hour-btn:hover:not(:disabled) { border-color: var(--primary); }
+.hour-btn:disabled { background: #f0f3f5; color: #9aa7b2; cursor: not-allowed; }
+.hour-btn:disabled small { color: #9aa7b2; }
+.hour-btn.selected { background: var(--primary); border-color: var(--primary); color: white; }
+.hour-btn.selected small { color: #cdeee2; }
+
+.co2-section { background: #f0faf6; border: 1px solid #cdeee2; border-radius: var(--radius); padding: 14px 18px; margin-top: 18px; }
+.co2-section h3 { margin: 0 0 4px; color: #0b7358; }
+.co2-section p { margin: 0; text-align: left; }
+.back-link { text-align: center; }
+
+/* ---------- Filters ---------- */
+.filter-section { padding: 26px 20px 18px; background: var(--white); border-bottom: 1px solid var(--border); }
+.filter-section h2 { font-size: 26px; margin-bottom: 14px; }
+
+.filters { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 8px; }
+.filters label { display: flex; flex-direction: column; text-align: left; font-size: 12px; font-weight: 600; color: var(--text-muted); gap: 2px; }
+.filters label.check { flex-direction: row; align-items: center; gap: 6px; font-size: 14px; color: var(--text-main); padding: 10px 4px; }
+.filters select, .filters input[type=date], .filters button {
+    padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--border); font-size: 14px; font-weight: 500; color: var(--text-main); background: white; font-family: inherit;
+}
+.filters button { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: 600; transition: background-color .15s; }
+.filters button:hover { background: var(--primary-dark); }
+
+/* ---------- Map ---------- */
+.map-section { padding: 0; background: var(--white); border-bottom: 1px solid var(--border); }
+#map { height: 420px; width: 100%; background: #e8eef2; }
+.map-error { padding: 24px; color: var(--danger); font-size: 14px; }
+.info-win { font-size: 14px; line-height: 1.5; color: #1a2733; }
+.map-legend { display: flex; justify-content: center; gap: 22px; flex-wrap: wrap; padding: 10px; font-size: 13px; color: var(--text-muted); }
+.map-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; }
+
+/* ---------- Station cards & lists ---------- */
+.station-list, .page-section { max-width: 820px; margin: 0 auto; width: 100%; padding: 36px 20px; }
+.page-section.wide-page { max-width: 1000px; }
+.page-section h2 { font-size: 28px; margin-bottom: 18px; }
+.station-list h3 { font-size: 19px; margin-bottom: 16px; text-align: left; }
+.list { text-align: left; margin-top: 16px; }
+
+.card-link { display: block; text-decoration: none; color: inherit; }
+.station-card {
+    background: var(--white); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+    border-radius: var(--radius); padding: 16px 20px; margin: 12px 0; box-shadow: var(--shadow);
+    text-align: left; transition: box-shadow .15s, transform .15s;
+}
+a.card-link:hover .station-card { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
+.station-card h4 { font-size: 17px; font-weight: 600; }
+.station-card p { font-size: 14px; color: var(--text-muted); margin-top: 3px; }
+.card-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.card-actions { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+.next-station { background: #f0faf6; border-left-width: 6px; }
+.out-of-range { opacity: .7; border-left-color: var(--danger); }
+.score { background: var(--primary); color: white; font-weight: 700; font-size: 14px; border-radius: 999px; padding: 3px 12px; }
+.empty { padding: 30px 10px; text-align: center; }
+
+.inline-edit { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.inline-edit label { display: flex; flex-direction: column; font-size: 12px; font-weight: 600; color: var(--text-muted); gap: 2px; }
+.inline-edit input, .inline-edit select { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; width: 130px; background: white; }
+
+/* ---------- Smart finder ---------- */
+.recommend-section { background: #eef4f8; border-bottom: 1px solid var(--border); padding: 40px 20px; flex: 1 0 auto; }
+.recommend-controls { display: flex; justify-content: center; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin: 22px auto; max-width: 900px; }
+.recommend-controls label { display: flex; flex-direction: column; text-align: left; font-size: 12px; font-weight: 600; color: var(--text-muted); gap: 2px; }
+.recommend-controls select, .recommend-controls input { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; font-family: inherit; background: white; }
+.recommend-controls input[type=number] { width: 120px; }
+.recommend-controls button { padding: 11px 22px; background: var(--primary); color: white; border: none; border-radius: var(--radius); font-weight: 600; cursor: pointer; }
+.recommend-controls button:hover { background: var(--primary-dark); }
+#recommendResult { max-width: 700px; margin: 0 auto; text-align: left; }
+
+/* ---------- Owner dashboard ---------- */
+.tabs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin: 10px 0 18px; }
+.tab { background: none; border: none; padding: 10px 18px; font-size: 15px; font-weight: 600; color: var(--text-muted);
+    border-bottom: 3px solid transparent; cursor: pointer; margin-bottom: -1px; }
+.tab:hover { color: var(--primary); }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+.table-wrap { overflow-x: auto; background: white; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-top: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
+th, td { padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { background: var(--bg-light); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--text-muted); }
+tr:last-child td { border-bottom: none; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 640px) {
+    header { padding: 12px 16px; flex-direction: column; align-items: flex-start; }
+    nav { gap: 2px 14px; }
+    nav a { font-size: 14px; }
+    section h2 { font-size: 24px; }
+    .hero { padding: 50px 16px 40px; }
+    .hero h2 { font-size: 27px; }
+    .form-section { margin: 20px 12px; padding: 26px 18px; max-width: none; }
+    .two-col { grid-template-columns: 1fr; }
+    #map { height: 300px; }
+    .filters select, .filters input[type=date], .filters button { flex: 1 1 140px; }
+    .inline-edit input, .inline-edit select { width: 100%; }
+    .inline-edit label { flex: 1 1 120px; }
+}
+
+#app { display: contents; }
+#app > section { flex: 0 0 auto; }
+
+    </style>
+</head>
+<body>
+    <header>
+        <h1><a href="#/">⚡ EV Power Station Finder</a></h1>
+        <nav id="mainNav"></nav>
+    </header>
+
+    <div id="app"></div>
+
+    <footer>
+        <p>&copy; 2026 EV Power Station Finder</p>
+    </footer>
+
+    <!-- ===================== PAGE TEMPLATES ===================== -->
+<template id="tpl-home">
+    <main>
+    <section class="hero">
+        <h2>Find &amp; Book EV Charging Stations Instantly</h2>
+        <p>Locate nearby stations, compare charging speeds and pricing, and reserve an hourly slot in seconds, so you never guess whether a charger is free.</p>
+        <div class="hero-buttons">
+            <a href="#/map" class="btn-primary">Find Stations</a>
+            <a href="#/smart" class="btn-outline">Smart Finder</a>
+        </div>
+    </section>
+
+    <section class="how-it-works">
+        <h2>How It Works</h2>
+        <div class="steps">
+            <div class="step"><div class="step-number">1</div><h3>Search</h3><p>Browse stations on the map with live slot availability for the hour you choose.</p></div>
+            <div class="step"><div class="step-number">2</div><h3>Compare</h3><p>Filter by connector, speed and price, or let Smart Finder rank the best option for you.</p></div>
+            <div class="step"><div class="step-number">3</div><h3>Book</h3><p>Reserve a one-hour slot and manage or cancel it from My Bookings.</p></div>
+        </div>
+    </section>
+
+    <section class="features">
+        <h2>Why Choose Us</h2>
+        <div class="feature-grid">
+            <div class="feature-card"><h3>Real-Time Availability</h3><p>Free slots are calculated per hour, so what you see is what you can book.</p></div>
+            <div class="feature-card"><h3>Smart Recommendations</h3><p>Stations scored on distance, price, speed and free slots.</p></div>
+            <div class="feature-card"><h3>For Station Owners</h3><p>Register your station, set pricing and status, and manage incoming bookings.</p></div>
+            <div class="feature-card"><h3>Secure Accounts</h3><p>JWT-protected sign-in with password reset by email.</p></div>
+        </div>
+    </section>
+
+    <section class="cta-banner" id="ctaBanner">
+        <h2>Ready to Charge Smarter?</h2>
+        <p>Create a free account as a driver, or register your station as an owner.</p>
+        <a href="#/signup" class="btn-primary">Create Free Account</a>
+    </section>
+    </main>
+
+    
+</template>
+<template id="tpl-map">
+    <section class="filter-section">
+        <h2>Find Charging Stations</h2>
+        <div class="filters">
+            <label>Charging at
+                <input type="date" id="dateInput">
+            </label>
+            <label>Hour
+                <select id="hourInput"></select>
+            </label>
+            <select id="speedFilter">
+                <option value="">Any speed</option>
+                <option value="slow">Slow</option>
+                <option value="fast">Fast</option>
+                <option value="rapid">Rapid</option>
+                <option value="ultra">Ultra</option>
+            </select>
+            <select id="connectorFilter">
+                <option value="">Any connector</option>
+                <optgroup label="AC Connectors">
+                    <option value="Type 1">Type 1 (SAE J1772)</option>
+                    <option value="Type 2">Type 2 (IEC 62196)</option>
+                    <option value="Bharat AC-001">Bharat AC-001</option>
+                </optgroup>
+                <optgroup label="DC Connectors">
+                    <option value="CCS2">CCS2</option>
+                    <option value="CHAdeMO">CHAdeMO</option>
+                    <option value="Bharat DC-001">Bharat DC-001</option>
+                    <option value="GB/T">GB/T DC</option>
+                </optgroup>
+            </select>
+            <select id="priceFilter">
+                <option value="">Any price</option>
+                <option value="low">Low (up to ₹10)</option>
+                <option value="medium">Medium (₹11 - ₹15)</option>
+                <option value="high">High (above ₹15)</option>
+            </select>
+            <label class="check"><input type="checkbox" id="bookableOnly"> Bookable only</label>
+            <button id="applyFilters" type="button">Apply</button>
+            <button id="locateBtn" type="button" class="secondary">📍 Use my location</button>
+        </div>
+        <p id="listMsg" class="msg"></p>
+    </section>
+
+    <section class="map-section">
+        <div id="map"></div>
+        <div class="map-legend">
+            <span><i style="background:#0f9d78"></i> Available</span>
+            <span><i style="background:#e8890c"></i> Busy</span>
+            <span><i style="background:#d64545"></i> Offline / Full / Maintenance</span>
+        </div>
+    </section>
+
+    <section class="station-list">
+        <h3 id="listTitle">Stations</h3>
+        <div id="stationContainer">Loading stations...</div>
+    </section>
+
+    
+</template>
+<template id="tpl-smart">
+    <section class="recommend-section smart-page">
+        <h2>Smart Station Finder</h2>
+        <p>Tell us what you're charging and when. We rank bookable stations by distance, price, speed and free slots.</p>
+        <div class="recommend-controls">
+            <label>Vehicle
+                <select id="vehicleType">
+                    <option value="3">Two wheeler (~3 kWh)</option>
+                    <option value="8">Three wheeler (~8 kWh)</option>
+                    <option value="30" selected>Four wheeler (~30 kWh)</option>
+                    <option value="custom">Custom...</option>
+                </select>
+            </label>
+            <label>Energy needed (kWh)
+                <input type="number" id="kwh" min="0.1" max="500" step="0.1" value="30">
+            </label>
+            <label>Connector
+                <select id="connector">
+                    <option value="">Any</option>
+                    <option>Type 1</option><option>Type 2</option><option>Bharat AC-001</option>
+                    <option>CCS2</option><option>CHAdeMO</option><option>Bharat DC-001</option><option>GB/T</option>
+                </select>
+            </label>
+            <label>Date <input type="date" id="dateInput"></label>
+            <label>Hour <select id="hourInput"></select></label>
+            <label>Results
+                <select id="limit"><option>3</option><option>5</option><option>10</option></select>
+            </label>
+            <button id="findBtn" type="button">Find best stations</button>
+        </div>
+        <p id="message" class="msg"></p>
+        <div id="recommendResult"></div>
+    </section>
+
+    
+</template>
+<template id="tpl-booking">
+    <main>
+    <section class="form-section wide" id="bookingSection">
+        <div id="stationInfo">Loading station...</div>
+
+        <div id="bookingForm" class="hidden">
+            <h3>Book a slot</h3>
+            <label for="dateInput">Date</label>
+            <input type="date" id="dateInput" required>
+
+            <label>Hour <small>(each booking is one hour; pick a time with free slots)</small></label>
+            <div id="hourGrid" class="hour-grid">Loading availability...</div>
+
+            <label for="slotSelect">Slot</label>
+            <select id="slotSelect" disabled><option value="">Pick an hour first</option></select>
+
+            <label for="vehicleNumber">Vehicle number <small>(optional)</small></label>
+            <input type="text" id="vehicleNumber" placeholder="e.g. MH 18 AB 1234" maxlength="20">
+
+            <label for="tripDistance">Expected trip distance in km <small>(optional, for CO₂ estimate)</small></label>
+            <input type="number" id="tripDistance" min="0" step="1">
+
+            <button type="button" id="confirmBtn" disabled>Confirm Booking</button>
+            <p id="message" class="msg"></p>
+        </div>
+
+        <div class="co2-section hidden" id="co2Result">
+            <h3>🌱 Environmental Impact</h3>
+            <p id="co2Text"></p>
+        </div>
+        <p class="back-link"><a href="#/map">&larr; Back to stations</a> | <a href="#/my-bookings">My bookings</a></p>
+    </section>
+    </main>
+
+    
+</template>
+<template id="tpl-login">
+    <main>
+    <section class="form-section">
+        <h2>Login</h2>
+        <form id="loginForm">
+            <label for="email">Email</label>
+            <input type="email" id="email" autocomplete="email" required>
+            <label for="password">Password</label>
+            <input type="password" id="password" autocomplete="current-password" required>
+            <button type="submit" id="submitBtn">Login</button>
+        </form>
+        <p id="message" class="msg"></p>
+        <p><a href="#/forgot-password">Forgot your password?</a></p>
+        <p>Don't have an account? <a href="#/signup">Sign up here</a></p>
+    </section>
+    </main>
+
+    
+</template>
+<template id="tpl-signup">
+    <main>
+    <section class="form-section">
+        <h2>Sign Up</h2>
+        <form id="signupForm">
+            <div class="role-toggle">
+                <label><input type="radio" name="role" value="user" checked> Driver</label>
+                <label><input type="radio" name="role" value="owner"> Station owner</label>
+            </div>
+            <label for="name">Full name</label>
+            <input type="text" id="name" autocomplete="name" required>
+            <label for="email">Email</label>
+            <input type="email" id="email" autocomplete="email" required>
+            <div id="ownerFields" class="hidden">
+                <label for="business">Business name <small>(optional)</small></label>
+                <input type="text" id="business">
+                <label for="phone">Phone <small>(optional)</small></label>
+                <input type="tel" id="phone" autocomplete="tel">
+            </div>
+            <label for="password">Password <small>(min. 8 characters)</small></label>
+            <input type="password" id="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+            <label for="confirmPassword">Confirm password</label>
+            <input type="password" id="confirmPassword" minlength="8" maxlength="72" autocomplete="new-password" required>
+            <button type="submit" id="submitBtn">Sign Up</button>
+        </form>
+        <p id="message" class="msg"></p>
+        <p>Already have an account? <a href="#/login">Login here</a></p>
+    </section>
+    </main>
+
+    
+</template>
+<template id="tpl-forgot-password">
+    <main>
+    <section class="form-section">
+        <h2>Forgot Password</h2>
+        <form id="forgotForm">
+            <label for="email">Account email</label>
+            <input type="email" id="email" required>
+            <button type="submit" id="submitBtn">Send reset link</button>
+        </form>
+        <p id="message" class="msg"></p>
+        <p id="debugBox" class="hidden"></p>
+        <p><a href="#/login">Back to login</a></p>
+    </section>
+    </main>
+
+    
+</template>
+<template id="tpl-reset-password">
+    <main>
+    <section class="form-section">
+        <h2>Reset Password</h2>
+        <form id="resetForm">
+            <label for="password">New password <small>(min. 8 characters)</small></label>
+            <input type="password" id="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+            <label for="confirmPassword">Confirm new password</label>
+            <input type="password" id="confirmPassword" minlength="8" maxlength="72" autocomplete="new-password" required>
+            <button type="submit" id="submitBtn">Update password</button>
+        </form>
+        <p id="message" class="msg"></p>
+        <p><a href="#/login">Back to login</a></p>
+    </section>
+    </main>
+
+    
+</template>
+<template id="tpl-my-bookings">
+    <main>
+    <section class="page-section">
+        <h2>My Bookings</h2>
+        <div class="filters">
+            <select id="statusFilter">
+                <option value="">All bookings</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+            <a href="#/map" class="btn-primary small">+ New booking</a>
+        </div>
+        <p id="message" class="msg"></p>
+        <div id="list" class="list">Loading...</div>
+    </section>
+    </main>
+
+    
+</template>
+<template id="tpl-owner">
+    <main>
+    <section class="page-section wide-page">
+        <h2>Owner Dashboard</h2>
+        <p id="message" class="msg"></p>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="stations">My Stations</button>
+            <button class="tab" data-tab="bookings">Bookings</button>
+            <button class="tab" data-tab="add">+ Register Station</button>
+        </div>
+
+        <!-- stations -->
+        <div id="tab-stations" class="tab-panel">
+            <div id="stationList" class="list">Loading...</div>
+        </div>
+
+        <!-- bookings -->
+        <div id="tab-bookings" class="tab-panel hidden">
+            <div class="filters">
+                <select id="bStation"><option value="">All stations</option></select>
+                <select id="bStatus">
+                    <option value="">Any status</option><option value="confirmed">Confirmed</option><option value="cancelled">Cancelled</option>
+                </select>
+                <label class="check"><input type="checkbox" id="bUpcoming" checked> Upcoming only</label>
+            </div>
+            <div id="bookingList" class="list">Loading...</div>
+        </div>
+
+        <!-- register -->
+        <div id="tab-add" class="tab-panel hidden">
+            <form id="addForm" class="form-section wide flat">
+                <h3>Register a new station</h3>
+                <label>Station name</label><input name="name" required>
+                <label>Address</label><input name="address" required>
+                <div class="two-col">
+                    <div><label>Latitude</label><input name="lat" type="number" step="any" min="-90" max="90" required></div>
+                    <div><label>Longitude</label><input name="lng" type="number" step="any" min="-180" max="180" required></div>
+                </div>
+                <button type="button" class="secondary" id="useLocBtn">📍 Use my current location</button>
+                <div class="two-col">
+                    <div><label>Connector type</label>
+                        <select name="connector_type" required>
+                            <option>Type 1</option><option selected>Type 2</option><option>Bharat AC-001</option>
+                            <option>CCS2</option><option>CHAdeMO</option><option>Bharat DC-001</option><option>GB/T</option>
+                        </select></div>
+                    <div><label>Charging speed</label>
+                        <select name="charging_speed" required>
+                            <option>Slow</option><option selected>Fast</option><option>Rapid</option><option>Ultra</option>
+                        </select></div>
+                </div>
+                <div class="two-col">
+                    <div><label>Price per unit (₹)</label><input name="price_per_unit" type="number" min="0" step="0.5" required></div>
+                    <div><label>Total slots</label><input name="total_slots" type="number" min="1" max="100" step="1" value="1" required></div>
+                </div>
+                <label>Contact phone <small>(optional)</small></label><input name="contact_phone" type="tel">
+                <button type="submit" id="addBtn">Register station</button>
+            </form>
+        </div>
+    </section>
+    </main>
+
+    
+</template>
+
+    <!-- ===================== SCRIPT ===================== -->
+    <script>
+    /* Shared helpers for every page. Matches the Flask backend (routes/*.py). */
+    /* >>> Change this to your deployed backend URL (HTTPS) before publishing on GitHub Pages. <<< */
+    const API_BASE = "http://127.0.0.1:5000/api";
+
+    /* ---------- session ---------- */
+    function saveSession(token, user) {
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", JSON.stringify(user || {}));
+    }
+    function getToken() { return localStorage.getItem("token"); }
+    function getUser() {
+        try { return JSON.parse(localStorage.getItem("user")) || null; } catch (e) { return null; }
+    }
+    function clearSession() {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+    }
+    function isLoggedIn() { return !!getToken(); }
+    function isOwner() { const u = getUser(); return !!u && u.role === "owner"; }
+
+    /* Redirects to login if needed. role: "owner" | "user" | undefined */
+    function requireLogin(role) {
+        if (!isLoggedIn()) {
+            navigate("#/login?next=" + encodeURIComponent(ROUTE.raw));
+            return false;
+        }
+        if (role && (getUser() || {}).role !== role) {
+            navigate(role === "owner" ? "#/my-bookings" : "#/owner");
+            return false;
+        }
+        return true;
+    }
+
+    /* ---------- API ---------- */
+    /* Returns parsed JSON. Throws Error(message) using the backend's {error} field. */
+    async function api(path, { method = "GET", body, params, auth = false } = {}) {
+        let url = API_BASE + path;
+        if (params) {
+            const q = new URLSearchParams();
+            Object.entries(params).forEach(([k, v]) => {
+                if (v !== undefined && v !== null && v !== "") q.append(k, v);
+            });
+            const s = q.toString();
+            if (s) url += "?" + s;
+        }
+        const headers = {};
+        if (body !== undefined) headers["Content-Type"] = "application/json";
+        if (auth || getToken()) {
+            if (getToken()) headers["Authorization"] = "Bearer " + getToken();
+        }
+
+        const rid = ROUTE.id;
+        let res;
+        try {
+            res = await fetch(url, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
+        } catch (e) {
+            throw new Error("Could not reach the server. Make sure the backend is running.");
+        }
+        let data = {};
+        try { data = await res.json(); } catch (e) { /* empty body */ }
+        if (rid !== ROUTE.id) return new Promise(() => {});   // user left the page: drop the stale response
+
+        if (!res.ok) {
+            // expired / invalid token on a protected call
+            if (res.status === 401 && auth && path !== "/auth/login") {
+                clearSession();
+                navigate("#/login?next=" + encodeURIComponent(ROUTE.raw));
+            }
+            const err = new Error(data.error || data.msg || data.message || ("Request failed (" + res.status + ")"));
+            err.status = res.status;
+            throw err;
+        }
+        return data;
+    }
+
+    /* ---------- small utilities ---------- */
+    function esc(t) {
+        const d = document.createElement("div");
+        d.textContent = t ?? "";
+        return d.innerHTML;
+    }
+
+    /* Backend datetimes may come without a timezone; they are UTC. */
+    function parseDate(v) {
+        if (!v) return null;
+        if (v instanceof Date) return v;
+        let s = String(v);
+        if (/^\d{4}-\d{2}-\d{2}T/.test(s) && !/(Z|[+-]\d{2}:?\d{2})$/.test(s)) s += "Z";
+        const d = new Date(s);
+        return isNaN(d) ? null : d;
+    }
+    function fmtDateTime(v) {
+        const d = parseDate(v);
+        return d ? d.toLocaleString([], { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "-";
+    }
+    function fmtHour(d) {
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+    /* Date -> "2026-10-26T08:00:00+00:00" (always UTC, safe for Python's fromisoformat) */
+    function toApiTime(d) {
+        return d.toISOString().replace(/\.\d{3}Z$/, "+00:00");
+    }
+    function pad(n) { return String(n).padStart(2, "0"); }
+    function localDateStr(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+    function money(n) { return "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 }); }
+
+    function statusClass(s) {
+        return { Available: "ok", Busy: "warn", Offline: "bad", Maintenance: "bad" }[s] || "muted";
+    }
+    function stationBadge(s) {
+        if (!s.bookable && s.availability_status === "Available") return '<span class="badge bad">Fully booked</span>';
+        return `<span class="badge ${statusClass(s.availability_status)}">${esc(s.availability_status || "Unknown")}</span>`;
+    }
+
+    function getUserLocation() {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) return resolve(null);
+            navigator.geolocation.getCurrentPosition(
+                (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+                () => resolve(null),
+                { timeout: 8000 }
+            );
+        });
+    }
+
+    /* Inline message box: showMsg(el, "text", "error" | "success" | "info") */
+    function showMsg(el, text, type = "error") {
+        if (!el) return;
+        el.className = "msg " + (text ? type : "");
+        el.textContent = text || "";
+    }
+
+    /* ---------- navigation (rebuilt on every route change) ---------- */
+    function buildNav() {
+        const nav = document.getElementById("mainNav");
+        if (!nav) return;
+        const page = ROUTE.name;
+        const links = [
+            ["home", "#/", "Home"],
+            ["map", "#/map", "Find Stations"],
+            ["smart", "#/smart", "Smart Finder"],
+        ];
+        if (isLoggedIn()) {
+            if (isOwner()) links.push(["owner", "#/owner", "Owner Dashboard"]);
+            else links.push(["my-bookings", "#/my-bookings", "My Bookings"]);
+        }
+        let html = links.map(([name, href, label]) =>
+            `<a href="${href}" class="${page === name ? "active" : ""}">${label}</a>`).join("");
+        if (isLoggedIn()) {
+            const u = getUser() || {};
+            html += `<a href="#" id="logoutLink">Logout (${esc(u.name || "account")})</a>`;
+        } else {
+            html += `<a href="#/login" class="${page === "login" ? "active" : ""}">Login</a>`;
+        }
+        nav.innerHTML = html;
+        const out = document.getElementById("logoutLink");
+        if (out) out.addEventListener("click", (e) => {
+            e.preventDefault();
+            clearSession();
+            navigate("#/");
+        });
+    }
+
+    /* ---------- tiny hash router ---------- */
+    const ROUTE = { id: 0, name: "home", raw: "", search: "", params: new URLSearchParams() };
+    const PAGES = {};
+    const TITLES = {"home": "Home - EV Power Station Finder", "map": "Find Stations - EV Power Station Finder", "smart": "Smart Finder - EV Power Station Finder", "booking": "Book Station - EV Power Station Finder", "login": "Login - EV Power Station Finder", "signup": "Sign Up - EV Power Station Finder", "forgot-password": "Forgot Password - EV Power Station Finder", "reset-password": "Reset Password - EV Power Station Finder", "my-bookings": "My Bookings - EV Power Station Finder", "owner": "Owner Dashboard - EV Power Station Finder"};
+
+    function navigate(hash) {
+        if (location.hash === hash) render(); else location.hash = hash;
+    }
+
+    function parseRoute() {
+        let h = location.hash.replace(/^#\/?/, "");            // "booking?id=1"
+        const q = h.indexOf("?");
+        const name = (q < 0 ? h : h.slice(0, q)) || "home";
+        ROUTE.raw = h;
+        ROUTE.name = PAGES[name] ? name : "home";
+        ROUTE.search = q < 0 ? "" : h.slice(q);
+        ROUTE.params = new URLSearchParams(ROUTE.search);
+    }
+
+    function render() {
+        ROUTE.id++;
+        parseRoute();
+        const tpl = document.getElementById("tpl-" + ROUTE.name);
+        const app = document.getElementById("app");
+        app.replaceChildren(tpl.content.cloneNode(true));
+        document.title = TITLES[ROUTE.name];
+        buildNav();
+        window.scrollTo(0, 0);
+        PAGES[ROUTE.name]();
+    }
+    window.addEventListener("hashchange", render);
+    document.addEventListener("DOMContentLoaded", render);
+    </script>
+    <script>
+    /* ===================== PAGE LOGIC ===================== */
+    PAGES["home"] = function () {
+        if (isLoggedIn()) document.getElementById("ctaBanner").style.display = "none";
+    };
+    PAGES["map"] = function () {
+                // 👇 Paste your Google Maps API key here
+                const GOOGLE_MAPS_KEY = "PASTE_YOUR_KEY_HERE";
+
+                let allStations = [];
+                let currentStations = [];
+                let userLoc = null;
+                let map = null, infoWindow = null, markers = [];
+                let AdvancedMarkerElement, PinElement;
+
+                // ---------- time picker (stations are bookable per hour) ----------
+                const dateInput = document.getElementById("dateInput");
+                const hourInput = document.getElementById("hourInput");
+                const now = new Date();
+                dateInput.value = localDateStr(now);
+                dateInput.min = localDateStr(now);
+                for (let h = 0; h < 24; h++) {
+                    const o = document.createElement("option");
+                    o.value = h; o.textContent = pad(h) + ":00";
+                    hourInput.appendChild(o);
+                }
+                hourInput.value = now.getHours();
+
+                function selectedStart() {
+                    const [y, m, d] = dateInput.value.split("-").map(Number);
+                    return new Date(y, m - 1, d, Number(hourInput.value), 0, 0);
+                }
+
+                // ---------- Google Maps ----------
+                window.gm_authFailure = () => {
+                    document.getElementById("map").innerHTML =
+                        '<p class="map-error">Google Maps could not load. Check your API key, billing, and allowed website list. The station list below still works.</p>';
+                };
+
+                window.initMap = async function () {
+                    const lib = await google.maps.importLibrary("marker");
+                    AdvancedMarkerElement = lib.AdvancedMarkerElement;
+                    PinElement = lib.PinElement;
+                    map = new google.maps.Map(document.getElementById("map"), {
+                        center: { lat: 21.0, lng: 74.8 }, zoom: 7, mapId: "DEMO_MAP_ID"
+                    });
+                    infoWindow = new google.maps.InfoWindow();
+                    renderMarkers(currentStations);
+                };
+
+                (function loadGoogleMaps() {
+                    if (!GOOGLE_MAPS_KEY || GOOGLE_MAPS_KEY === "PASTE_YOUR_KEY_HERE") {
+                        document.getElementById("map").innerHTML =
+                            '<p class="map-error">Add your Google Maps API key (GOOGLE_MAPS_KEY) in index.html to see the map. The station list below still works.</p>';
+                        return;
+                    }
+                    if (window.google && google.maps) { window.initMap(); return; }
+                    if (document.getElementById("gmaps-sdk")) return;
+                    const s = document.createElement("script");
+                    s.id = "gmaps-sdk";
+                    s.src = "https://maps.googleapis.com/maps/api/js?key=" + GOOGLE_MAPS_KEY + "&loading=async&callback=initMap";
+                    s.async = true;
+                    s.onerror = () => { document.getElementById("map").textContent = "Could not load Google Maps."; };
+                    document.head.appendChild(s);
+                })();
+
+                function pinColor(s) {
+                    if (!s.bookable) return "#d64545";
+                    return s.availability_status === "Busy" ? "#e8890c" : "#0f9d78";
+                }
+
+                function bookingUrl(s) {
+                    return "#/booking?" + new URLSearchParams({
+                        id: s._id, date: dateInput.value, hour: hourInput.value
+                    }).toString();
+                }
+
+                function renderMarkers(stations) {
+                    if (!map) return;
+                    markers.forEach((m) => { m.map = null; });
+                    markers = [];
+                    const bounds = new google.maps.LatLngBounds();
+                    let count = 0;
+
+                    stations.forEach((s) => {
+                        const loc = s.location;
+                        if (!loc || loc.lat == null || loc.lng == null) return;
+                        const pin = new PinElement({ background: pinColor(s), borderColor: "#ffffff", glyphColor: "#ffffff" });
+                        const marker = new AdvancedMarkerElement({
+                            map, position: { lat: loc.lat, lng: loc.lng }, title: s.name, content: pin.element
+                        });
+                        marker.addListener("click", () => {
+                            infoWindow.setContent(
+                                '<div class="info-win"><strong>' + esc(s.name) + '</strong><br>' +
+                                esc(s.address || "") + '<br>' +
+                                'Connector: ' + esc(s.connector_type) + ' | ' + esc(s.charging_speed) + '<br>' +
+                                'Price: ' + money(s.price_per_unit) + '/unit<br>' +
+                                'Free slots: ' + s.free_slots + ' / ' + s.total_slots + '<br>' +
+                                (s.bookable ? '<a href="' + bookingUrl(s) + '">Book a slot</a> | ' : '') +
+                                '<a href="https://www.google.com/maps/dir/?api=1&destination=' + loc.lat + ',' + loc.lng + '" target="_blank" rel="noopener">Directions</a></div>');
+                            infoWindow.open({ map, anchor: marker });
+                        });
+                        markers.push(marker);
+                        bounds.extend({ lat: loc.lat, lng: loc.lng });
+                        count++;
+                    });
+
+                    if (userLoc) bounds.extend(userLoc);
+                    if (count === 1 && !userLoc) { map.setCenter(bounds.getCenter()); map.setZoom(12); }
+                    else if (count > 0) map.fitBounds(bounds, 50);
+                }
+
+                // ---------- load from API ----------
+                const listMsg = document.getElementById("listMsg");
+
+                async function loadStations() {
+                    const container = document.getElementById("stationContainer");
+                    container.textContent = "Loading stations...";
+                    showMsg(listMsg, "");
+                    try {
+                        const params = { start_time: toApiTime(selectedStart()) };
+                        if (userLoc) { params.lat = userLoc.lat; params.lng = userLoc.lng; }
+                        const data = await api("/stations", { params });
+                        allStations = data.stations || [];
+                        applyFilters();
+                    } catch (err) {
+                        container.textContent = "";
+                        showMsg(listMsg, err.message);
+                    }
+                }
+
+                function applyFilters() {
+                    const speed = document.getElementById("speedFilter").value;
+                    const connector = document.getElementById("connectorFilter").value;
+                    const price = document.getElementById("priceFilter").value;
+                    const bookableOnly = document.getElementById("bookableOnly").checked;
+
+                    const filtered = allStations.filter((s) => {
+                        const p = Number(s.price_per_unit);
+                        return (!speed || String(s.charging_speed || "").toLowerCase() === speed) &&
+                               (!connector || s.connector_type === connector) &&
+                               (!price || (price === "low" && p <= 10) || (price === "medium" && p > 10 && p <= 15) || (price === "high" && p > 15)) &&
+                               (!bookableOnly || s.bookable);
+                    });
+                    renderStations(filtered);
+                }
+
+                function renderStations(stations) {
+                    const container = document.getElementById("stationContainer");
+                    container.innerHTML = "";
+                    currentStations = stations;
+                    document.getElementById("listTitle").textContent =
+                        stations.length + " station" + (stations.length === 1 ? "" : "s") + (userLoc ? " (nearest first)" : "");
+                    renderMarkers(stations);
+
+                    if (!stations.length) { container.textContent = "No stations match your filters."; return; }
+
+                    stations.forEach((s) => {
+                        const a = document.createElement("a");
+                        a.href = bookingUrl(s);
+                        a.className = "card-link";
+                        a.innerHTML =
+                            '<div class="station-card ' + (s.bookable ? "" : "out-of-range") + '">' +
+                            '<div class="card-top"><h4>' + esc(s.name) + '</h4>' + stationBadge(s) + '</div>' +
+                            '<p>' + esc(s.address || "") + '</p>' +
+                            '<p>' + esc(s.charging_speed) + ' | ' + esc(s.connector_type) + ' | ' + money(s.price_per_unit) + '/unit | ' +
+                            '<strong>' + s.free_slots + '/' + s.total_slots + '</strong> slots free' +
+                            (s.distance_km != null ? ' | ' + s.distance_km + ' km away' : '') + '</p></div>';
+                        container.appendChild(a);
+                    });
+                }
+
+                // ---------- events ----------
+                document.getElementById("applyFilters").addEventListener("click", loadStations);
+                dateInput.addEventListener("change", loadStations);
+                hourInput.addEventListener("change", loadStations);
+                ["speedFilter", "connectorFilter", "priceFilter", "bookableOnly"].forEach((id) =>
+                    document.getElementById(id).addEventListener("change", applyFilters));
+
+                document.getElementById("locateBtn").addEventListener("click", async (e) => {
+                    const btn = e.currentTarget;
+                    btn.disabled = true; btn.textContent = "Locating...";
+                    userLoc = await getUserLocation();
+                    btn.disabled = false; btn.textContent = "📍 Use my location";
+                    if (!userLoc) { showMsg(listMsg, "Location unavailable. Allow location access in your browser.", "info"); return; }
+                    loadStations();
+                });
+
+                loadStations();
+    
+    };
+    PAGES["smart"] = function () {
+                const msg = document.getElementById("message");
+                const box = document.getElementById("recommendResult");
+                const dateInput = document.getElementById("dateInput");
+                const hourInput = document.getElementById("hourInput");
+                const kwhInput = document.getElementById("kwh");
+                const vehicle = document.getElementById("vehicleType");
+
+                const now = new Date();
+                dateInput.value = localDateStr(now); dateInput.min = localDateStr(now);
+                for (let h = 0; h < 24; h++) {
+                    const o = document.createElement("option"); o.value = h; o.textContent = pad(h) + ":00"; hourInput.appendChild(o);
+                }
+                hourInput.value = now.getHours();
+
+                vehicle.addEventListener("change", () => { if (vehicle.value !== "custom") kwhInput.value = vehicle.value; });
+                kwhInput.addEventListener("input", () => { vehicle.value = "custom"; });
+
+                function startTime() {
+                    const [y, m, d] = dateInput.value.split("-").map(Number);
+                    return new Date(y, m - 1, d, Number(hourInput.value), 0, 0);
+                }
+
+                async function find() {
+                    showMsg(msg, ""); box.innerHTML = "";
+                    const start = startTime();
+                    const nowHour = new Date(); nowHour.setMinutes(0, 0, 0);
+                    if (start < nowHour) { showMsg(msg, "Choose a time that is not in the past."); return; }
+
+                    const btn = document.getElementById("findBtn");
+                    btn.disabled = true;
+                    showMsg(msg, "Finding your location...", "info");
+                    let loc = await getUserLocation();
+                    let note = "";
+                    if (!loc) {
+                        loc = { lat: 21.35, lng: 74.88 };   // fallback: Shirpur
+                        note = '<p class="msg info">Location unavailable, using Shirpur as the starting point.</p>';
+                    }
+                    showMsg(msg, "");
+
+                    try {
+                        const data = await api("/recommend", { params: {
+                            lat: loc.lat, lng: loc.lng, start_time: toApiTime(start),
+                            connector_type: document.getElementById("connector").value,
+                            kwh: kwhInput.value, limit: document.getElementById("limit").value
+                        }});
+                        if (!data.stations.length) {
+                            box.innerHTML = note + '<p class="empty">' + esc(data.message || "No bookable stations found.") + '</p>';
+                        } else {
+                            box.innerHTML = note + data.stations.map((s, i) => {
+                                const why = (s.why || []).map((w) => '<span class="badge ok">' + esc(w) + '</span>').join(" ");
+                                const book = "#/booking?" + new URLSearchParams({ id: s._id, date: dateInput.value, hour: hourInput.value });
+                                return '<div class="station-card ' + (i === 0 ? "next-station" : "") + '">' +
+                                    '<div class="card-top"><h4>' + (i === 0 ? "★ Best match: " : (i + 1) + ". ") + esc(s.name) + '</h4>' +
+                                    '<span class="score" title="Match score">' + s.score + '</span></div>' +
+                                    '<p>' + esc(s.address || "") + '</p>' +
+                                    '<p>' + s.distance_km + ' km | ' + esc(s.charging_speed) + ' | ' + esc(s.connector_type) + ' | ' +
+                                    money(s.price_per_unit) + '/unit | ' + s.free_slots + ' slot' + (s.free_slots === 1 ? '' : 's') + ' free</p>' +
+                                    '<p>Estimated cost for ' + data.kwh + ' kWh: <strong>' + money(s.estimated_cost) + '</strong></p>' +
+                                    (why ? '<p>' + why + '</p>' : '') +
+                                    '<div class="card-actions"><a class="btn-primary small" href="' + book + '">Book this</a> ' +
+                                    '<a class="btn-outline small" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' +
+                                    s.location.lat + ',' + s.location.lng + '">Directions</a></div></div>';
+                            }).join("");
+                        }
+                    } catch (err) { showMsg(msg, err.message); }
+                    btn.disabled = false;
+                }
+                document.getElementById("findBtn").addEventListener("click", find);
+    
+    };
+    PAGES["booking"] = function () {
+                const params = ROUTE.params;
+                const stationId = params.get("id");
+                const dateInput = document.getElementById("dateInput");
+                const hourGrid = document.getElementById("hourGrid");
+                const slotSelect = document.getElementById("slotSelect");
+                const confirmBtn = document.getElementById("confirmBtn");
+                const msg = document.getElementById("message");
+
+                let station = null;
+                let hours = [];          // availability rows for the chosen date
+                let chosen = null;       // selected availability row
+
+                const today = new Date();
+                dateInput.min = localDateStr(today);
+                dateInput.value = params.get("date") && params.get("date") >= dateInput.min ? params.get("date") : localDateStr(today);
+
+                async function loadStation() {
+                    const box = document.getElementById("stationInfo");
+                    if (!stationId) { box.innerHTML = '<p class="msg error">No station selected. <a href="#/map">Pick one on the map</a>.</p>'; return; }
+                    try {
+                        station = (await api("/stations/" + encodeURIComponent(stationId))).station;
+                        box.innerHTML =
+                            '<h2>' + esc(station.name) + '</h2>' +
+                            '<p class="sub">' + esc(station.address || "") + '</p>' +
+                            '<div class="detail-grid">' +
+                            '<div><span>Connector</span><strong>' + esc(station.connector_type) + '</strong></div>' +
+                            '<div><span>Speed</span><strong>' + esc(station.charging_speed) + '</strong></div>' +
+                            '<div><span>Price</span><strong>' + money(station.price_per_unit) + '/unit</strong></div>' +
+                            '<div><span>Slots</span><strong>' + station.total_slots + '</strong></div>' +
+                            '<div><span>Status</span>' + stationBadge(station) + '</div></div>';
+
+                        if (!isLoggedIn()) {
+                            box.innerHTML += '<p class="msg info">Please <a href="#/login?next=' +
+                                encodeURIComponent(ROUTE.raw) + '">log in</a> to book a slot.</p>';
+                        } else if (isOwner()) {
+                            box.innerHTML += '<p class="msg info">Owner accounts cannot book slots. Use a driver account.</p>';
+                        } else if (station.availability_status === "Offline" || station.availability_status === "Maintenance") {
+                            box.innerHTML += '<p class="msg error">This station is not accepting bookings right now.</p>';
+                        } else {
+                            document.getElementById("bookingForm").classList.remove("hidden");
+                            loadAvailability();
+                        }
+                    } catch (err) {
+                        box.innerHTML = '<p class="msg error">' + esc(err.message) + '</p>';
+                    }
+                }
+
+                async function loadAvailability() {
+                    chosen = null; updateConfirm();
+                    slotSelect.innerHTML = '<option value="">Pick an hour first</option>';
+                    slotSelect.disabled = true;
+                    hourGrid.textContent = "Loading availability...";
+
+                    const [y, m, d] = dateInput.value.split("-").map(Number);
+                    let start = new Date(y, m - 1, d, 0, 0, 0);
+                    const nowHour = new Date(); nowHour.setMinutes(0, 0, 0);
+                    if (start < nowHour) start = nowHour;                 // never ask for past hours
+                    const endOfDay = new Date(y, m - 1, d + 1, 0, 0, 0);
+                    const count = Math.round((endOfDay - start) / 3600000);
+                    if (count < 1) { hourGrid.textContent = "No hours left today. Choose another date."; return; }
+
+                    try {
+                        const data = await api("/stations/" + encodeURIComponent(stationId) + "/availability",
+                            { params: { start_time: toApiTime(start), hours: Math.min(count, 24) } });
+                        hours = data.hours || [];
+                        if (data.offline) { hourGrid.textContent = "Station is offline."; return; }
+                        hourGrid.innerHTML = "";
+                        hours.forEach((h, i) => {
+                            const t = parseDate(h.slot_start);
+                            const b = document.createElement("button");
+                            b.type = "button";
+                            b.className = "hour-btn";
+                            b.disabled = h.free_slots === 0;
+                            b.innerHTML = '<strong>' + fmtHour(t) + '</strong><small>' + (h.free_slots ? h.free_slots + ' free' : 'full') + '</small>';
+                            b.addEventListener("click", () => chooseHour(i, b));
+                            hourGrid.appendChild(b);
+                        });
+                        if (!hours.length) hourGrid.textContent = "No availability data.";
+                        // preselect the hour passed from the map page
+                        const pre = params.get("hour");
+                        if (pre !== null && params.get("date") === dateInput.value) {
+                            const idx = hours.findIndex((h) => parseDate(h.slot_start).getHours() === Number(pre) && h.free_slots > 0);
+                            if (idx >= 0) chooseHour(idx, hourGrid.children[idx]);
+                        }
+                    } catch (err) {
+                        hourGrid.textContent = "";
+                        showMsg(msg, err.message);
+                    }
+                }
+
+                function chooseHour(i, btn) {
+                    chosen = hours[i];
+                    hourGrid.querySelectorAll(".hour-btn").forEach((b) => b.classList.remove("selected"));
+                    btn.classList.add("selected");
+                    slotSelect.innerHTML = '<option value="">Any free slot (automatic)</option>' +
+                        chosen.free_slot_numbers.map((n) => '<option value="' + n + '">Slot ' + n + '</option>').join("");
+                    slotSelect.disabled = false;
+                    showMsg(msg, "");
+                    updateConfirm();
+                }
+
+                function updateConfirm() { confirmBtn.disabled = !chosen; }
+
+                confirmBtn.addEventListener("click", async () => {
+                    if (!chosen) return;
+                    showMsg(msg, "");
+                    confirmBtn.disabled = true;
+                    const body = { station_id: stationId, start_time: toApiTime(parseDate(chosen.slot_start)) };
+                    if (slotSelect.value) body.slot_number = Number(slotSelect.value);   // backend requires an integer
+                    const veh = document.getElementById("vehicleNumber").value.trim();
+                    if (veh) body.vehicle_number = veh;
+
+                    try {
+                        const data = await api("/bookings", { method: "POST", auth: true, body });
+                        const b = data.booking;
+                        showMsg(msg, "Booking confirmed: " + b.station_name + ", slot " + b.slot_number + " at " + fmtDateTime(b.slot_start) + ".", "success");
+                        showCo2();
+                        loadAvailability();      // refresh free counts
+                    } catch (err) {
+                        showMsg(msg, err.message);
+                        if (err.status === 409) loadAvailability();   // someone else took it
+                        else confirmBtn.disabled = false;
+                    }
+                });
+
+                function showCo2() {
+                    const km = parseFloat(document.getElementById("tripDistance").value);
+                    if (!km || km <= 0) return;
+                    const saved = ((120 - 65) * km) / 1000;     // g CO2/km: petrol 120 vs EV on Indian grid 65
+                    document.getElementById("co2Text").textContent =
+                        "By charging here you could save about " + saved.toFixed(1) + " kg of CO₂ compared with a petrol vehicle on a " + km + " km trip.";
+                    document.getElementById("co2Result").classList.remove("hidden");
+                }
+
+                dateInput.addEventListener("change", () => { params.delete("hour"); loadAvailability(); });
+                loadStation();
+    
+    };
+    PAGES["login"] = function () {
+                if (isLoggedIn()) navigate(isOwner() ? "#/owner" : "#/map");
+                const msg = document.getElementById("message");
+                const params = ROUTE.params;
+                if (params.get("registered")) showMsg(msg, "Account created. Please log in.", "success");
+
+                document.getElementById("loginForm").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const btn = document.getElementById("submitBtn");
+                    showMsg(msg, "");
+                    btn.disabled = true;
+                    try {
+                        const data = await api("/auth/login", {
+                            method: "POST",
+                            body: { email: document.getElementById("email").value.trim(),
+                                    password: document.getElementById("password").value }
+                        });
+                        saveSession(data.access_token, data.user);
+                        const next = params.get("next");
+                        const safeNext = next && /^[\w\-]+(\?.*)?$/.test(next) ? next : null;
+                        navigate(safeNext ? "#/" + safeNext : (data.user.role === "owner" ? "#/owner" : "#/map"));
+                    } catch (err) {
+                        showMsg(msg, err.message);
+                        btn.disabled = false;
+                    }
+                });
+    
+    };
+    PAGES["signup"] = function () {
+                const msg = document.getElementById("message");
+                const ownerFields = document.getElementById("ownerFields");
+                document.querySelectorAll('input[name="role"]').forEach((r) =>
+                    r.addEventListener("change", () =>
+                        ownerFields.classList.toggle("hidden", document.querySelector('input[name="role"]:checked').value !== "owner")));
+
+                document.getElementById("signupForm").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    showMsg(msg, "");
+                    const password = document.getElementById("password").value;
+                    if (password !== document.getElementById("confirmPassword").value) {
+                        showMsg(msg, "Passwords do not match");
+                        return;
+                    }
+                    const role = document.querySelector('input[name="role"]:checked').value;
+                    const body = {
+                        name: document.getElementById("name").value.trim(),
+                        email: document.getElementById("email").value.trim(),
+                        password, role
+                    };
+                    if (role === "owner") {
+                        body.business_name = document.getElementById("business").value.trim();
+                        body.phone = document.getElementById("phone").value.trim();
+                    }
+                    const btn = document.getElementById("submitBtn");
+                    btn.disabled = true;
+                    try {
+                        await api("/auth/register", { method: "POST", body });
+                        navigate("#/login?registered=1");
+                    } catch (err) {
+                        showMsg(msg, err.message);
+                        btn.disabled = false;
+                    }
+                });
+    
+    };
+    PAGES["forgot-password"] = function () {
+                const msg = document.getElementById("message");
+                document.getElementById("forgotForm").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    showMsg(msg, "");
+                    const btn = document.getElementById("submitBtn");
+                    btn.disabled = true;
+                    try {
+                        const data = await api("/auth/forgot-password", { method: "POST",
+                            body: { email: document.getElementById("email").value.trim() } });
+                        showMsg(msg, data.message, "success");
+                        // Only present when the backend runs with RESET_DEBUG_RETURN_TOKEN=true (local testing)
+                        if (data.debug_token) {
+                            const box = document.getElementById("debugBox");
+                            box.classList.remove("hidden");
+                            box.innerHTML = '<a href="#/reset-password?token=' + encodeURIComponent(data.debug_token) + '">Dev: open reset page</a>';
+                        }
+                    } catch (err) {
+                        showMsg(msg, err.message);
+                    }
+                    btn.disabled = false;
+                });
+    
+    };
+    PAGES["reset-password"] = function () {
+                const msg = document.getElementById("message");
+                const token = ROUTE.params.get("token");
+                if (!token) {
+                    showMsg(msg, "This reset link is missing its token. Request a new one from the login page.");
+                    document.getElementById("submitBtn").disabled = true;
+                }
+                document.getElementById("resetForm").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    showMsg(msg, "");
+                    const pw = document.getElementById("password").value;
+                    if (pw !== document.getElementById("confirmPassword").value) {
+                        showMsg(msg, "Passwords do not match");
+                        return;
+                    }
+                    const btn = document.getElementById("submitBtn");
+                    btn.disabled = true;
+                    try {
+                        const data = await api("/auth/reset-password", { method: "POST", body: { token, new_password: pw } });
+                        showMsg(msg, data.message, "success");
+                        setTimeout(() => (navigate("#/login")), 1800);
+                    } catch (err) {
+                        showMsg(msg, err.message);
+                        btn.disabled = false;
+                    }
+                });
+    
+    };
+    PAGES["my-bookings"] = function () {
+                const msg = document.getElementById("message");
+                const list = document.getElementById("list");
+
+                function init() {
+                    document.getElementById("statusFilter").addEventListener("change", load);
+                    load();
+                }
+
+                async function load() {
+                    showMsg(msg, "");
+                    try {
+                        const data = await api("/bookings/my", { auth: true, params: { status: document.getElementById("statusFilter").value } });
+                        render(data.bookings || []);
+                    } catch (err) { list.textContent = ""; showMsg(msg, err.message); }
+                }
+
+                function render(rows) {
+                    if (!rows.length) { list.innerHTML = '<p class="empty">No bookings yet. <a href="#/map">Find a station</a>.</p>'; return; }
+                    const nowMs = Date.now();
+                    list.innerHTML = rows.map((b) => {
+                        const start = parseDate(b.slot_start), end = parseDate(b.slot_end);
+                        const upcoming = b.status === "confirmed" && start && start.getTime() > nowMs;
+                        const label = b.status === "cancelled" ? "Cancelled" : (upcoming ? "Upcoming" : "Completed");
+                        const cls = b.status === "cancelled" ? "bad" : (upcoming ? "ok" : "muted");
+                        return '<div class="station-card ' + (b.status === "cancelled" ? "out-of-range" : "") + '">' +
+                            '<div class="card-top"><h4>' + esc(b.station_name) + '</h4><span class="badge ' + cls + '">' + label + '</span></div>' +
+                            '<p>' + fmtDateTime(b.slot_start) + (end ? ' - ' + fmtHour(end) : '') + ' | Slot ' + esc(b.slot_number) +
+                            (b.vehicle_number ? ' | ' + esc(b.vehicle_number) : '') + '</p>' +
+                            (b.cancelled_by ? '<p>Cancelled by ' + esc(b.cancelled_by) + '</p>' : '') +
+                            (upcoming ? '<div class="card-actions"><button class="danger small" data-id="' + esc(b._id) + '">Cancel booking</button></div>' : '') +
+                            '</div>';
+                    }).join("");
+                    list.querySelectorAll("button[data-id]").forEach((btn) => btn.addEventListener("click", () => cancel(btn)));
+                }
+
+                async function cancel(btn) {
+                    if (!confirm("Cancel this booking?")) return;
+                    btn.disabled = true;
+                    try {
+                        await api("/bookings/" + encodeURIComponent(btn.dataset.id) + "/cancel", { method: "POST", auth: true });
+                        showMsg(msg, "Booking cancelled.", "success");
+                        load();
+                    } catch (err) { showMsg(msg, err.message); btn.disabled = false; }
+                }
+
+                if (requireLogin("user")) init();
+    
+    };
+    PAGES["owner"] = function () {
+                const msg = document.getElementById("message");
+                let stationsCache = [];
+                const STATUSES = ["Available", "Busy", "Offline", "Maintenance"];
+
+                if (requireLogin("owner")) init();
+
+                function init() {
+                    document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.tab)));
+                    ["bStation", "bStatus", "bUpcoming"].forEach((id) => document.getElementById(id).addEventListener("change", loadBookings));
+                    document.getElementById("addForm").addEventListener("submit", addStation);
+                    document.getElementById("useLocBtn").addEventListener("click", useLocation);
+                    loadStations();
+                }
+
+                function switchTab(name) {
+                    document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+                    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("hidden", p.id !== "tab-" + name));
+                    showMsg(msg, "");
+                    if (name === "bookings") loadBookings();
+                    if (name === "stations") loadStations();
+                }
+
+                // ---------- stations ----------
+                async function loadStations() {
+                    try {
+                        const data = await api("/owner/stations", { auth: true });
+                        stationsCache = data.stations || [];
+                        renderStations();
+                        const sel = document.getElementById("bStation");
+                        const cur = sel.value;
+                        sel.innerHTML = '<option value="">All stations</option>' +
+                            stationsCache.map((s) => '<option value="' + esc(s._id) + '">' + esc(s.name) + '</option>').join("");
+                        sel.value = cur;
+                    } catch (err) {
+                        document.getElementById("stationList").textContent = "";
+                        showMsg(msg, err.message);
+                    }
+                }
+
+                function renderStations() {
+                    const el = document.getElementById("stationList");
+                    const active = stationsCache.filter((s) => s.is_active !== false);
+                    if (!active.length) { el.innerHTML = '<p class="empty">You have no stations yet. Use "Register Station" to add one.</p>'; return; }
+                    el.innerHTML = active.map((s) =>
+                        '<div class="station-card" data-id="' + esc(s._id) + '">' +
+                        '<div class="card-top"><h4>' + esc(s.name) + '</h4><span class="badge ' + statusClass(s.availability_status) + '">' + esc(s.availability_status) + '</span></div>' +
+                        '<p>' + esc(s.address) + '</p>' +
+                        '<p>' + esc(s.charging_speed) + ' | ' + esc(s.connector_type) + ' | ' + s.total_slots + ' slots | ' + s.upcoming_bookings + ' upcoming booking' + (s.upcoming_bookings === 1 ? '' : 's') + '</p>' +
+                        '<div class="inline-edit">' +
+                        '<label>Status <select data-f="availability_status">' + STATUSES.map((x) => '<option' + (x === s.availability_status ? ' selected' : '') + '>' + x + '</option>').join("") + '</select></label>' +
+                        '<label>Price (₹/unit) <input data-f="price_per_unit" type="number" min="0" step="0.5" value="' + s.price_per_unit + '"></label>' +
+                        '<label>Slots <input data-f="total_slots" type="number" min="1" max="100" value="' + s.total_slots + '"></label>' +
+                        '<button class="small" data-act="save">Save changes</button>' +
+                        '<button class="danger small" data-act="remove">Remove</button></div></div>'
+                    ).join("");
+                    el.querySelectorAll("button[data-act]").forEach((b) => b.addEventListener("click", () => {
+                        const card = b.closest(".station-card");
+                        b.dataset.act === "save" ? saveStation(card, b) : removeStation(card, b);
+                    }));
+                }
+
+                async function saveStation(card, btn) {
+                    const body = {};
+                    card.querySelectorAll("[data-f]").forEach((f) => { body[f.dataset.f] = f.value; });
+                    body.price_per_unit = Number(body.price_per_unit);
+                    body.total_slots = Number(body.total_slots);
+                    btn.disabled = true;
+                    try {
+                        await api("/stations/" + encodeURIComponent(card.dataset.id), { method: "PATCH", auth: true, body });
+                        showMsg(msg, "Station updated.", "success");
+                        await loadStations();
+                    } catch (err) { showMsg(msg, err.message); btn.disabled = false; }
+                }
+
+                async function removeStation(card, btn) {
+                    if (!confirm("Remove this station? It will be hidden from drivers (booking history is kept).")) return;
+                    btn.disabled = true;
+                    try {
+                        await api("/stations/" + encodeURIComponent(card.dataset.id), { method: "DELETE", auth: true });
+                        showMsg(msg, "Station removed.", "success");
+                        await loadStations();
+                    } catch (err) { showMsg(msg, err.message); btn.disabled = false; }
+                }
+
+                // ---------- register ----------
+                async function useLocation() {
+                    const loc = await getUserLocation();
+                    const f = document.getElementById("addForm");
+                    if (!loc) { showMsg(msg, "Could not get your location. Enter coordinates manually.", "info"); return; }
+                    f.lat.value = loc.lat.toFixed(6); f.lng.value = loc.lng.toFixed(6);
+                }
+
+                async function addStation(e) {
+                    e.preventDefault();
+                    const f = e.target;
+                    const body = {
+                        name: f.name.value.trim(), address: f.address.value.trim(),
+                        location: { lat: Number(f.lat.value), lng: Number(f.lng.value) },
+                        connector_type: f.connector_type.value, charging_speed: f.charging_speed.value,
+                        price_per_unit: Number(f.price_per_unit.value), total_slots: Number(f.total_slots.value)
+                    };
+                    if (f.contact_phone.value.trim()) body.contact_phone = f.contact_phone.value.trim();
+                    const btn = document.getElementById("addBtn");
+                    btn.disabled = true;
+                    try {
+                        await api("/stations", { method: "POST", auth: true, body });
+                        f.reset();
+                        switchTab("stations");
+                        showMsg(msg, "Station registered.", "success");
+                    } catch (err) { showMsg(msg, err.message); }
+                    btn.disabled = false;
+                }
+
+                // ---------- bookings ----------
+                async function loadBookings() {
+                    const el = document.getElementById("bookingList");
+                    el.textContent = "Loading...";
+                    try {
+                        const data = await api("/owner/bookings", { auth: true, params: {
+                            station_id: document.getElementById("bStation").value,
+                            status: document.getElementById("bStatus").value,
+                            upcoming: document.getElementById("bUpcoming").checked ? "true" : ""
+                        }});
+                        const rows = data.bookings || [];
+                        if (!rows.length) { el.innerHTML = '<p class="empty">No bookings found.</p>'; return; }
+                        const nowMs = Date.now();
+                        el.innerHTML = '<div class="table-wrap"><table><thead><tr><th>When</th><th>Station</th><th>Slot</th><th>Driver</th><th>Vehicle</th><th>Status</th><th></th></tr></thead><tbody>' +
+                            rows.map((b) => {
+                                const start = parseDate(b.slot_start);
+                                const canCancel = b.status === "confirmed" && start && start.getTime() > nowMs;
+                                return '<tr><td>' + fmtDateTime(b.slot_start) + '</td><td>' + esc(b.station_name) + '</td><td>' + esc(b.slot_number) +
+                                    '</td><td>' + esc(b.user_name || "-") + '</td><td>' + esc(b.vehicle_number || "-") +
+                                    '</td><td><span class="badge ' + (b.status === "cancelled" ? "bad" : "ok") + '">' + esc(b.status) + '</span></td><td>' +
+                                    (canCancel ? '<button class="danger small" data-id="' + esc(b._id) + '">Cancel</button>' : '') + '</td></tr>';
+                            }).join("") + '</tbody></table></div>';
+                        el.querySelectorAll("button[data-id]").forEach((b) => b.addEventListener("click", () => cancelBooking(b)));
+                    } catch (err) { el.textContent = ""; showMsg(msg, err.message); }
+                }
+
+                async function cancelBooking(btn) {
+                    if (!confirm("Cancel this driver's booking?")) return;
+                    btn.disabled = true;
+                    try {
+                        await api("/owner/bookings/" + encodeURIComponent(btn.dataset.id) + "/cancel", { method: "POST", auth: true });
+                        showMsg(msg, "Booking cancelled.", "success");
+                        loadBookings();
+                    } catch (err) { showMsg(msg, err.message); btn.disabled = false; }
+                }
+    
+    };
+    </script>
+</body>
+</html>
